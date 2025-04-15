@@ -9,7 +9,7 @@ from ddqc.utils import mad
 
 def metric_filter(data: MultimodalData, method: str, param: float, metric_name: str, do_lower_co: bool = False,
                   do_upper_co: bool = False,
-                  lower_bound: float = 10 ** 10, upper_bound: float = -10 ** 10,
+                  lower_bound: Optional[float] = None, upper_bound: Optional[float] = None,
                   df_qc: pd.DataFrame = None) -> np.ndarray:
     """Function that performs filtering result computation for the specified metric."""
     qc_pass = np.zeros(data.shape[0], dtype=bool)  # T/F array to tell whether the cell is filtered
@@ -21,19 +21,14 @@ def metric_filter(data: MultimodalData, method: str, param: float, metric_name: 
         idx = data.obs["cluster_labels"] == cl
         values = data.obs.loc[idx, metric_name]
 
-        if method == "mad":  # calculate MAD cutoffs, which are median ± param * MAD
-            median_v = np.median(values)
-            mad_v = mad(values)
-            lower_co = median_v - param * mad_v
-            upper_co = median_v + param * mad_v
-        else:
-            assert method == "outlier"  # calculate Outlier cutoffs, which are Q1 - 1.5 * IQR or Q3 + 1.5 * IQR
-            q75, q25 = np.percentile(values, [75, 25])
-            lower_co = q25 - 1.5 * (q75 - q25)
-            upper_co = q75 + 1.5 * (q75 - q25)
+        # calculate MAD cutoffs, which are median ± param * MAD
+        median_v = np.median(values)
+        mad_v = mad(values)
+        lower_co = median_v - param * mad_v
+        upper_co = median_v + param * mad_v
 
-        lower_co = min(lower_co, lower_bound)
-        upper_co = max(upper_co, upper_bound)
+        lower_co = min(lower_co, lower_bound) if lower_bound is not None else lower_co
+        upper_co = max(upper_co, upper_bound) if upper_bound is not None else upper_co
 
         qc_pass_cl = np.ones(values.size, dtype=bool)
         if df_qc is not None:
