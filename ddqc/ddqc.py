@@ -16,33 +16,17 @@ from ddqc.utils import cluster_data, calculate_percent_ribo
 #question is do we want to generalize this to set of qc metrics that we want?
 def ddqc_metrics(data: MultimodalData,
                  clustering_obs: str = "louvain",
-                 method: str = "mad", threshold: float = 2.0, threshold_counts: Union[int, None] = 0,
-                 threshold_genes: Union[int, None] = 0, threshold_mito: Union[float, None] = 0,
-                 threshold_ribo: Union[float, None] = 0,
-                 mito_prefix: str = "MT-", ribo_prefix: str = "^RP[SL][[:digit:]]|^RPLP[[:digit:]]|^RPSA",
-                 n_genes_lower_bound: int = 200, percent_mito_upper_bound: float = 10.0, random_state: int = 29,
+                 default_threshold: float = 2.0, 
+                 metrics_df: pd.Dataframe = None,
                  return_df_qc: bool = False, display_plots: bool = True) -> Union[None, pd.DataFrame]:
     """
     Parameters:
         data (MultimodalData): Pegasus object.
         clustering_obs (str): name of column in obs to use for clustering.
-        method (str): statistic on which the threshold would be calculated. Supported options are "mad" and "outlier"
-            (default is "mad").
-        threshold (float): parameter for the selected method (default is 2).
+        default_threshold (float): parameter for the selected method (default is 2).
             Note that "outlier" method doesn't requre parameter and will ignore this option.
-        threshold_counts (int, None): setting for applying ddqc based on number of counts. (Default is 0)
-            - If set to 0, will perform ddqc on number of counts using the "threshold" parameter provided earlier.
-            - If set to a number other than 0, will  overwrite "threshold" parameter for number of counts.
-            - If set to None, won't perform ddqc on number of counts.
-        threshold_genes (int, None): Same as above, but for number of genes.
-        threshold_mito (float, None): Same as above, but for percent of mitochondrial transcripts.
-        threshold_ribo (float, None): Same as above, but for percent of ribosomal transcripts.
-        mito_prefix (str): gene prefix used to calculate percent_mito in a cell (default is "MT-").
-        ribo_prefix (str): gene regular expression used to calculate percent_ribo in a cell
-            (default is "^RP[SL][[:digit:]]|^RPLP[[:digit:]]|^RPSA").
-        n_genes_lower_bound (int): bound for lower n_genes cluster-level threshold (default is 200).
-        percent_mito_upper_bound (float): bound for upper percent_mito cluster-level threshold (default is 10).
-        random_state (int): random seed for clustering results reproducibility (default is 29)
+        metrics_df (dataframe): dataframe of metrics, index == metrics, columns store threshhold and bound information, 
+            as well as which bounds to calculate
         return_df_qc (bool): whether to return a dataframe with the information about on what metric and what threshold
             the cell was removed for each removed cell. (default is False)
         display_plots (bool): whether to show plots that would show filtering statistics (default is True).
@@ -51,15 +35,13 @@ def ddqc_metrics(data: MultimodalData,
             if return_df_qc was True.
     """
     assert isinstance(data, MultimodalData)
-
+    if 
     # initial qc
     #consider filling in percent calculations here
-    calculate_percent_ribo(data, ribo_prefix)  # calculate percent ribo
-
-    passed_qc, df_qc, _ = perform_ddqc(data_copy, method, threshold,
+    passed_qc, df_qc, _ = perform_ddqc(data, threshold,
                                        threshold_counts, threshold_genes, threshold_mito, threshold_ribo,
                                        n_genes_lower_bound, percent_mito_upper_bound)
-
+    #TODO: below here will still need help.
     if display_plots:
         boxplot_sorted(df_qc, "n_genes", "cluster_labels", hline_x=np.log2(200), log=True)
         plt.show()
