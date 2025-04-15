@@ -11,24 +11,21 @@ from ddqc.filtering import perform_ddqc
 from ddqc.plotting import filtering_facet_plot, boxplot_sorted, calculate_filtering_stats
 from ddqc.utils import cluster_data, calculate_percent_ribo
 
-
+#main changes: passing in a clustering, assuming intial QC done - because the point is not to have an end to end thing
+#literally only need the mad calculation realistically
+#question is do we want to generalize this to set of qc metrics that we want?
 def ddqc_metrics(data: MultimodalData,
-                 res: float = 1.3, clustering_method: str = "louvain", n_components: int = 50, k: int = 20,
+                 clustering_obs: str = "louvain",
                  method: str = "mad", threshold: float = 2.0, threshold_counts: Union[int, None] = 0,
                  threshold_genes: Union[int, None] = 0, threshold_mito: Union[float, None] = 0,
-                 threshold_ribo: Union[float, None] = 0, basic_n_counts: int = 0,
-                 basic_n_genes: int = 100, basic_percent_mito: float = 80.0,
+                 threshold_ribo: Union[float, None] = 0,
                  mito_prefix: str = "MT-", ribo_prefix: str = "^RP[SL][[:digit:]]|^RPLP[[:digit:]]|^RPSA",
                  n_genes_lower_bound: int = 200, percent_mito_upper_bound: float = 10.0, random_state: int = 29,
                  return_df_qc: bool = False, display_plots: bool = True) -> Union[None, pd.DataFrame]:
     """
     Parameters:
         data (MultimodalData): Pegasus object.
-        res (float): clustering resolution (default is 1.3).
-        clustering_method (str): clustering method that will be used by ddqc clustering. Supported options are:
-            "louvain", "leiden", "spectral_louvain", and "spectral_leiden" (default is "louvain").
-        n_components (int): number of PCA components (default is 50).
-        k (int): k to be used by neighbors Pegasus function (default is 20).
+        clustering_obs (str): name of column in obs to use for clustering.
         method (str): statistic on which the threshold would be calculated. Supported options are "mad" and "outlier"
             (default is "mad").
         threshold (float): parameter for the selected method (default is 2).
@@ -40,9 +37,6 @@ def ddqc_metrics(data: MultimodalData,
         threshold_genes (int, None): Same as above, but for number of genes.
         threshold_mito (float, None): Same as above, but for percent of mitochondrial transcripts.
         threshold_ribo (float, None): Same as above, but for percent of ribosomal transcripts.
-        basic_n_counts (int): parameter for the initial QC n_counts filtering (default is 0).
-        basic_n_genes (int): parameter for the initial QC n_genes filtering (default is 100).
-        basic_percent_mito (float): parameter for the initial QC percent_mito filtering (default is 80.0).
         mito_prefix (str): gene prefix used to calculate percent_mito in a cell (default is "MT-").
         ribo_prefix (str): gene regular expression used to calculate percent_ribo in a cell
             (default is "^RP[SL][[:digit:]]|^RPLP[[:digit:]]|^RPSA").
@@ -59,16 +53,9 @@ def ddqc_metrics(data: MultimodalData,
     assert isinstance(data, MultimodalData)
 
     # initial qc
-    pg.qc_metrics(data, mito_prefix=mito_prefix, min_umis=basic_n_counts, max_umis=10 ** 10, min_genes=basic_n_genes,
-                  max_genes=10 ** 10,
-                  percent_mito=basic_percent_mito)  # default PG filtering with custom cutoffs
+    #consider filling in percent calculations here
     calculate_percent_ribo(data, ribo_prefix)  # calculate percent ribo
-    pg.filter_data(data)  # filtering based on the parameters from qc_metrics
 
-    data_copy = data.copy()
-    cluster_data(data_copy, basic_n_counts, basic_n_genes, basic_percent_mito, mito_prefix, ribo_prefix,
-                 resolution=res, clustering_method=clustering_method,
-                 n_components=n_components, k=k, random_state=random_state)
     passed_qc, df_qc, _ = perform_ddqc(data_copy, method, threshold,
                                        threshold_counts, threshold_genes, threshold_mito, threshold_ribo,
                                        n_genes_lower_bound, percent_mito_upper_bound)
