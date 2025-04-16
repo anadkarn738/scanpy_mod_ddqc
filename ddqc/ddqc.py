@@ -38,9 +38,7 @@ def ddqc_metrics(data: MultimodalData,
     if 
     # initial qc
     #consider filling in percent calculations here
-    passed_qc, df_qc, _ = perform_ddqc(data, threshold,
-                                       threshold_counts, threshold_genes, threshold_mito, threshold_ribo,
-                                       n_genes_lower_bound, percent_mito_upper_bound)
+    passed_qc, df_qc, _ = perform_ddqc(data, clustering_obs, default_threshold, metrics_df)
     #TODO: below here will still need help.
     if display_plots:
         boxplot_sorted(df_qc, "n_genes", "cluster_labels", hline_x=np.log2(200), log=True)
