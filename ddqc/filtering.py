@@ -7,11 +7,12 @@ from pegasusio import MultimodalData
 from ddqc.utils import mad
 
 
-def metric_filter(data: MultimodalData, method: str, param: float, metric_name: str, do_lower_co: bool = False,
-                  do_upper_co: bool = False,
-                  lower_bound: Optional[float] = None, upper_bound: Optional[float] = None,
+def metric_filter(data: MultimodalData, param: float, metric_name: str, metric_info: pd.Series,
                   df_qc: pd.DataFrame = None) -> np.ndarray:
     """Function that performs filtering result computation for the specified metric."""
+    param   =  m_info["threshold"] if m_info["threshold"] is not None else default_threshold
+    lower_bound = m_info["lower_bound"]
+    upper_bound = m_info["upper_bound"]
     qc_pass = np.zeros(data.shape[0], dtype=bool)  # T/F array to tell whether the cell is filtered
     if df_qc is not None:
         df_qc[f"{metric_name}_lower_co"] = None
@@ -33,11 +34,11 @@ def metric_filter(data: MultimodalData, method: str, param: float, metric_name: 
         qc_pass_cl = np.ones(values.size, dtype=bool)
         if df_qc is not None:
             df_qc.loc[idx, f"{metric_name}"] = values
-        if do_lower_co:
+        if m_info["do_lower"]:
             qc_pass_cl &= (values >= lower_co)
             if df_qc is not None:
                 df_qc.loc[idx, f"{metric_name}_lower_co"] = lower_co
-        if do_upper_co:
+        if m_info["do_upper"]:
             qc_pass_cl &= (values <= upper_co)
             if df_qc is not None:
                 df_qc.loc[idx, f"{metric_name}_upper_co"] = upper_co
@@ -47,36 +48,23 @@ def metric_filter(data: MultimodalData, method: str, param: float, metric_name: 
     return qc_pass
 
 
-def perform_ddqc(data: MultimodalData, method: str, threshold: float,
-                 threshold_counts: Union[int, None], threshold_genes: Union[int, None],
-                 threshold_mito: Union[float, None], threshold_ribo: Union[float, None],
-                 n_genes_lower_bound: int, percent_mito_upper_bound: float,
+def perform_ddqc(data: MultimodalData, clustering_obs: str,
+                 default_threshold: float, 
+                 metrics_df: pd.Dataframe,
                  filtering_stats: Union[pd.DataFrame, None] = None):
     """Function that computes ddqc for all requested metrics with specified parameters."""
-    df_qc = pd.DataFrame({"cluster_labels": data.obs["cluster_labels"].values}, index=data.obs_names)
+    df_qc = pd.DataFrame({clustering_obs: data.obs[clustering_obs].values}, index=data.obs_names)
     passed_qc = np.ones(data.shape[0], dtype=bool)
+    #question is how we want to deal with, do we want a data frame and what passes, could see reason, but do we need at cell level?
+    #going to end up being a space time tradeoff... maybe we do accept this for sake of sanity
 
-    threshold_counts = threshold if threshold_counts == 0 else threshold_counts
-    threshold_genes = threshold if threshold_genes == 0 else threshold_genes
-    threshold_mito = threshold if threshold_mito == 0 else threshold_mito
-    threshold_ribo = threshold if threshold_ribo == 0 else threshold_ribo
-
-    # for each metric in case do_metric is true, the filtering will be performed
-    if threshold_counts is not None:
-        passed_qc &= metric_filter(data, method, threshold_counts, "n_counts", do_lower_co=True, df_qc=df_qc)
-    if threshold_genes is not None:
-        passed_qc &= metric_filter(data, method, threshold_genes, "n_genes", do_lower_co=True,
-                                   lower_bound=n_genes_lower_bound, df_qc=df_qc)
-    if threshold_mito is not None:
-        passed_qc &= metric_filter(data, method, threshold_mito, "percent_mito", do_upper_co=True,
-                                   upper_bound=percent_mito_upper_bound, df_qc=df_qc)
-    if threshold_ribo is not None:
-        passed_qc &= metric_filter(data, method, threshold_ribo, "percent_ribo", do_upper_co=True, df_qc=df_qc)
+    for me, m_info in metrics_df.iterrows():
+      passed_qc &= metric_filter(data, default_threshold, metric, m_info, df_qc)
 
     if filtering_stats is not None:
         cl_filtering_stats = []
-        for cl in data.obs.cluster_labels.cat.categories:
-            idx = data.obs["cluster_labels"] == cl
+        for cl in data.obs[clustering_obs].cat.categories:
+            idx = data.obs[clustering_obs] == cl
             unique, counts = np.unique(passed_qc[idx], return_counts=True)
             n_filtered_cells = dict(zip(unique, counts)).get(False, 0)
             n_filtered_cells_pct = n_filtered_cells / len(passed_qc[idx]) * 100
